@@ -5,6 +5,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/file.h>
+#include <time.h>
+#include <stdbool.h>
 
 #include "sysinc.h"
 #include "module.h"
@@ -96,6 +98,12 @@ static void templog_unlock(int timeout)
 	flock(shm_fd, LOCK_UN);
 }
 
+/* Maximum age of measurement is twice the poll interval. */
+static bool is_updated(const pitempmon_sensor *sensor)
+{
+    return ((sensor->updated - time(NULL)) < (shm->interval * 2));
+}
+
 int templog_item_last(AGENT_REQUEST *req, AGENT_RESULT *res)
 {
 	int status = SYSINFO_RET_FAIL;
@@ -103,7 +111,7 @@ int templog_item_last(AGENT_REQUEST *req, AGENT_RESULT *res)
 	if (req->nparam == 1) {
 		templog_lock(item_timeout);
 		pitempmon_sensor *s = find_sensor(get_rparam(req, 0));
-		if (s) {
+		if (s && is_updated(s)) {
 			SET_UI64_RESULT(res, s->last);
 			status = SYSINFO_RET_OK;
 		}
