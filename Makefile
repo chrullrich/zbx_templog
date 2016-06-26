@@ -1,10 +1,23 @@
 CPPFLAGS = -It/zabbix/include
-LDFLAGS = -lrt
-CFLAGS = -shared -fPIC -std=gnu11
+LDFLAGS = -lrt -shared
+CFLAGS = -fPIC -std=gnu11 -Wall -Werror
 
-all: zbx_templog.so
+ifdef DEBUG
+CFLAGS += -g
+else
+CFLAGS += -O2
+endif
 
-zbx_templog.so: zbx_templog
-	-mv $< $@
+SOURCES = zbx_templog.c
+OBJECTS = $(SOURCES:.c=.o)
 
+TARGET = zbx_templog.so
+
+all: $(TARGET)
+
+clean:
+	-rm -f $(OBJECTS) $(TARGET)
+
+$(TARGET): $(OBJECTS)
+	$(CC) $(LDFLAGS) $(OBJECTS) -o $@
 
