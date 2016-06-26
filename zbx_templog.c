@@ -1,6 +1,7 @@
 /* vim: set ts=4 sw=4 expandtab autoindent fileformat=unix: */
 
 #include <stdio.h>
+#include <stddef.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -11,20 +12,9 @@
 #include "sysinc.h"
 #include "module.h"
 
+#include "templog.h"
+
 #define SHM_NAME "/pitempmon"
-#define MAX_SENSORS 10
-
-typedef struct {
-	time_t updated;
-	int32_t last;
-	int32_t average;
-	char name[12];
-} pitempmon_sensor;
-
-typedef struct {
-	int32_t interval;
-	pitempmon_sensor sensors[MAX_SENSORS];
-} pitempmon_shmem;
 
 int templog_item_last(AGENT_REQUEST*, AGENT_RESULT*);
 int templog_item_avg(AGENT_REQUEST*, AGENT_RESULT*);
@@ -36,7 +26,7 @@ static ZBX_METRIC items[] = {
 };
 
 int item_timeout = 0;
-int shm_fd;
+int shm_fd = -1;
 pitempmon_shmem *shm;
 
 int zbx_module_api_version(void)
@@ -51,8 +41,13 @@ int zbx_module_init(void)
 		return ZBX_MODULE_FAIL;
 	}
 
-	shm = (pitempmon_shmem*)mmap(NULL, sizeof(pitempmon_shmem), PROT_READ, MAP_SHARED, shm_fd, 0);
-	close(shm_fd);
+	shm = (pitempmon_shmem*)mmap(NULL, 
+                                 sizeof(pitempmon_shmem),
+                                 PROT_READ,
+                                 MAP_SHARED,
+                                 shm_fd,
+                                 0);
+
 	if (shm == (void*)-1) {
 		return ZBX_MODULE_FAIL;
 	}
@@ -62,6 +57,10 @@ int zbx_module_init(void)
 
 int zbx_module_uninit(void)
 {
+    if (shm_fd != -1) {
+        close(shm_fd);
+    }
+
 	munmap((void*)shm, sizeof(pitempmon_shmem));
 	return ZBX_MODULE_OK;
 }
@@ -76,6 +75,9 @@ void zbx_module_item_timeout(int timeout)
 	item_timeout = timeout;
 }
 
+/* Look up a sensor by name.
+ * This is done once per request, but there is no faster alternative.
+ */
 static pitempmon_sensor *find_sensor(const char *name)
 {
 	for (int i = 0; i < MAX_SENSORS; ++i) {
@@ -88,6 +90,7 @@ static pitempmon_sensor *find_sensor(const char *name)
 	return NULL;
 }
 
+/* TODO: Timeout */
 static void templog_lock(int timeout)
 {
 	flock(shm_fd, LOCK_EX);
@@ -104,7 +107,10 @@ static bool is_updated(const pitempmon_sensor *sensor)
     return ((sensor->updated - time(NULL)) < (shm->interval * 2));
 }
 
-int templog_item_last(AGENT_REQUEST *req, AGENT_RESULT *res)
+/* As long as the values are all the same type, we can same some
+ * code through pointer arithmetic on the field offset.
+ */
+static int templog_item(AGENT_REQUEST *req, AGENT_RESULT *res, size_t offset)
 {
 	int status = SYSINFO_RET_FAIL;
 
@@ -112,7 +118,8 @@ int templog_item_last(AGENT_REQUEST *req, AGENT_RESULT *res)
 		templog_lock(item_timeout);
 		pitempmon_sensor *s = find_sensor(get_rparam(req, 0));
 		if (s && is_updated(s)) {
-			SET_UI64_RESULT(res, s->last);
+            int32_t *p = (int*)((char*)s + offset);
+			SET_UI64_RESULT(res, *p);
 			status = SYSINFO_RET_OK;
 		}
 		templog_unlock(item_timeout);
@@ -121,20 +128,13 @@ int templog_item_last(AGENT_REQUEST *req, AGENT_RESULT *res)
 	return status;
 }
 
+int templog_item_last(AGENT_REQUEST *req, AGENT_RESULT *res)
+{
+    return templog_item(req, res, offsetof(pitempmon_sensor, last));
+}
+
 int templog_item_avg(AGENT_REQUEST *req, AGENT_RESULT *res)
 {
-	int status = SYSINFO_RET_FAIL;
-
-	if (req->nparam == 1) {
-		templog_lock(item_timeout);
-		pitempmon_sensor *s = find_sensor(get_rparam(req, 0));
-		if (s) {
-			SET_UI64_RESULT(res, s->average);
-			status = SYSINFO_RET_OK;
-		}
-		templog_unlock(item_timeout);
-	}
-
-	return status;
+    return templog_item(req, res, offsetof(pitempmon_sensor, average));
 }
 
