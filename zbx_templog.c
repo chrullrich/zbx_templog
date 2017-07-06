@@ -104,7 +104,8 @@ static void templog_unlock(int timeout)
 /* Maximum age of measurement is twice the poll interval. */
 static bool is_updated(const pitempmon_sensor *sensor)
 {
-    return ((sensor->updated - time(NULL)) < (shm->interval * 2));
+    return ((sensor->updated != 0)
+            && (sensor->updated - time(NULL)) < (shm->interval * 2));
 }
 
 /* As long as the values are all the same type, we can same some
