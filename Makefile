@@ -11,14 +11,14 @@ CFLAGS += -g
 CFLAGS += -O2
 .endif
 
-all: zbx_templog.so
+all: libzbx_templog.so
 
 clean:
-	-rm -f zbx_templog.o zbx_templog.so
+	-rm -f zbx_templog.o libzbx_templog.so
 
 ${ZBX_CONFIG_H}: ${ZBX_CONFIG_H}.in
 	cp $> $@
 
-zbx_templog.so: zbx_templog.c ${ZBX_INCLUDE}/config.h
+libzbx_templog.so: zbx_templog.c ${ZBX_INCLUDE}/config.h
 	${CC} ${CPPFLAGS} ${CFLAGS} ${LDFLAGS} -o $@ $<
 
