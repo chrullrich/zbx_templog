@@ -13,6 +13,7 @@ typedef struct {
 } pitempmon_sensor;
 
 typedef struct {
+	int32_t pid;
 	int32_t interval;
 	pitempmon_sensor sensors[MAX_SENSORS];
 } pitempmon_shmem;
