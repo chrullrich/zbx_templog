@@ -29,6 +29,7 @@ static ZBX_METRIC items[] = {
 
 int item_timeout = 0;
 int shm_fd = -1;
+int lock_fd = -1;
 pitempmon_shmem *shm;
 
 int zbx_module_api_version(void)
@@ -50,9 +51,14 @@ int zbx_module_init(void)
                                  shm_fd,
                                  0);
 
-	if (shm == (void*)-1) {
+	if (shm == (void*)-1 || shm->lockfile[0] == 0) {
 		return ZBX_MODULE_FAIL;
 	}
+
+    lock_fd = open(shm->lockfile, O_RDWR);
+    if (lock_fd == -1) {
+        return ZBX_MODULE_FAIL;
+    }
 
 	return ZBX_MODULE_OK;
 }
@@ -62,6 +68,7 @@ int zbx_module_uninit(void)
     if (shm_fd != -1) {
         close(shm_fd);
     }
+    close(lock_fd);
 
 	munmap((void*)shm, sizeof(pitempmon_shmem));
 	return ZBX_MODULE_OK;
@@ -95,12 +102,12 @@ static pitempmon_sensor *find_sensor(const char *name)
 /* TODO: Timeout */
 static void templog_lock(int timeout)
 {
-	flock(shm_fd, LOCK_EX);
+	flock(lock_fd, LOCK_EX);
 }
 
 static void templog_unlock(int timeout)
 {
-	flock(shm_fd, LOCK_UN);
+	flock(lock_fd, LOCK_UN);
 }
 
 /* Maximum age of measurement is twice the poll interval. */
