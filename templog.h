@@ -6,17 +6,16 @@
 #define MAX_SENSORS 10
 
 typedef struct {
-	time_t updated;
-	int32_t last;
-	int32_t average;
-	char name[12];
+    time_t updated;
+    int32_t last;
+    int32_t average;
+    char name[12];
 } pitempmon_sensor;
 
 typedef struct {
-	char lockfile[64];
-	int32_t interval;
-	pitempmon_sensor sensors[MAX_SENSORS];
+    char lockfile[64];
+    int32_t interval;
+    pitempmon_sensor sensors[MAX_SENSORS];
 } pitempmon_shmem;
 
 #endif /* !__TEMPLOG_H__ */
-

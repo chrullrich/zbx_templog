@@ -22,4 +22,3 @@ ${ZBX_CONFIG_H}: ${ZBX_CONFIG_H}.in
 libzbx_templog.so: zbx_templog.c ${ZBX_INCLUDE}/config.h
 	${CC} ${CPPFLAGS} ${CFLAGS} -o zbx_templog.o -c zbx_templog.c
 	${CC} ${LDFLAGS} -o libzbx_templog.so zbx_templog.o -lrt
-

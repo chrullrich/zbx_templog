@@ -22,9 +22,9 @@ int templog_item_last(AGENT_REQUEST*, AGENT_RESULT*);
 int templog_item_avg(AGENT_REQUEST*, AGENT_RESULT*);
 
 static ZBX_METRIC items[] = {
-	{ "temperature.external.last", CF_HAVEPARAMS, templog_item_last, "Test1" },
-	{ "temperature.external.avg", CF_HAVEPARAMS, templog_item_avg, "Test1" },
-	{ NULL }
+    { "temperature.external.last", CF_HAVEPARAMS, templog_item_last, "Test1" },
+    { "temperature.external.avg", CF_HAVEPARAMS, templog_item_avg, "Test1" },
+    { NULL }
 };
 
 int item_timeout = 0;
@@ -34,33 +34,33 @@ pitempmon_shmem *shm;
 
 int zbx_module_api_version(void)
 {
-	return ZBX_MODULE_API_VERSION_ONE;
+    return ZBX_MODULE_API_VERSION_ONE;
 }
 
 int zbx_module_init(void)
 {
-	shm_fd = shm_open(SHM_NAME, O_RDONLY|O_CREAT, S_IRUSR|S_IWUSR);
-	if (shm_fd == -1) {
-		return ZBX_MODULE_FAIL;
-	}
+    shm_fd = shm_open(SHM_NAME, O_RDONLY|O_CREAT, S_IRUSR|S_IWUSR);
+    if (shm_fd == -1) {
+        return ZBX_MODULE_FAIL;
+    }
 
-	shm = (pitempmon_shmem*)mmap(NULL, 
+    shm = (pitempmon_shmem*)mmap(NULL, 
                                  sizeof(pitempmon_shmem),
                                  PROT_READ,
                                  MAP_SHARED,
                                  shm_fd,
                                  0);
 
-	if (shm == (void*)-1 || shm->lockfile[0] == 0) {
-		return ZBX_MODULE_FAIL;
-	}
+    if (shm == (void*)-1 || shm->lockfile[0] == 0) {
+        return ZBX_MODULE_FAIL;
+    }
 
     lock_fd = open(shm->lockfile, O_RDWR);
     if (lock_fd == -1) {
         return ZBX_MODULE_FAIL;
     }
 
-	return ZBX_MODULE_OK;
+    return ZBX_MODULE_OK;
 }
 
 int zbx_module_uninit(void)
@@ -70,18 +70,18 @@ int zbx_module_uninit(void)
     }
     close(lock_fd);
 
-	munmap((void*)shm, sizeof(pitempmon_shmem));
-	return ZBX_MODULE_OK;
+    munmap((void*)shm, sizeof(pitempmon_shmem));
+    return ZBX_MODULE_OK;
 }
 
 ZBX_METRIC *zbx_module_item_list(void)
 {
-	return items;
+    return items;
 }
 
 void zbx_module_item_timeout(int timeout)
 {
-	item_timeout = timeout;
+    item_timeout = timeout;
 }
 
 /* Look up a sensor by name.
@@ -89,25 +89,25 @@ void zbx_module_item_timeout(int timeout)
  */
 static pitempmon_sensor *find_sensor(const char *name)
 {
-	for (int i = 0; i < MAX_SENSORS; ++i) {
-		pitempmon_sensor *s = &shm->sensors[i];
-		if (strncmp(s->name, name, sizeof(s->name)) == 0) {
-			return s;
-		}
-	}
+    for (int i = 0; i < MAX_SENSORS; ++i) {
+        pitempmon_sensor *s = &shm->sensors[i];
+        if (strncmp(s->name, name, sizeof(s->name)) == 0) {
+            return s;
+        }
+    }
 
-	return NULL;
+    return NULL;
 }
 
 /* TODO: Timeout */
 static void templog_lock(int timeout)
 {
-	flock(lock_fd, LOCK_EX);
+    flock(lock_fd, LOCK_EX);
 }
 
 static void templog_unlock(int timeout)
 {
-	flock(lock_fd, LOCK_UN);
+    flock(lock_fd, LOCK_UN);
 }
 
 /* Maximum age of measurement is twice the poll interval. */
@@ -122,20 +122,20 @@ static bool is_updated(const pitempmon_sensor *sensor)
  */
 static int templog_item(AGENT_REQUEST *req, AGENT_RESULT *res, size_t offset)
 {
-	int status = SYSINFO_RET_FAIL;
+    int status = SYSINFO_RET_FAIL;
 
-	if (req->nparam == 1) {
-		templog_lock(item_timeout);
-		pitempmon_sensor *s = find_sensor(get_rparam(req, 0));
-		if (s && is_updated(s)) {
+    if (req->nparam == 1) {
+        templog_lock(item_timeout);
+        pitempmon_sensor *s = find_sensor(get_rparam(req, 0));
+        if (s && is_updated(s)) {
             int32_t *p = (int*)((char*)s + offset);
-			SET_UI64_RESULT(res, *p);
-			status = SYSINFO_RET_OK;
-		}
-		templog_unlock(item_timeout);
-	}
+            SET_UI64_RESULT(res, *p);
+            status = SYSINFO_RET_OK;
+        }
+        templog_unlock(item_timeout);
+    }
 
-	return status;
+    return status;
 }
 
 int templog_item_last(AGENT_REQUEST *req, AGENT_RESULT *res)
@@ -147,4 +147,3 @@ int templog_item_avg(AGENT_REQUEST *req, AGENT_RESULT *res)
 {
     return templog_item(req, res, offsetof(pitempmon_sensor, average));
 }
-
